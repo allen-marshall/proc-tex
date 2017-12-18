@@ -12,9 +12,7 @@ _NUM_POINTS = 20
 _IMAGE_MODE = 'F'
 
 class SimpleCellNoise(TimeSpaceTexture2D):
-  """A simple cellular noise generator.
-  For reproducible results, make sure the random number generator is seeded before
-  calling the constructor."""
+  """A simple cellular noise generator."""
   def __init__(self):
     super(SimpleCellNoise, self).__init__(_IMAGE_MODE)
     

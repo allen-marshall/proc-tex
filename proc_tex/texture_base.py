@@ -13,8 +13,11 @@ class TimeSpaceTexture2D:
   def evaluate(self, x, y):
     """Returns the pixel value for the current frame at the specified location.
     The format of the pixel value should match the subclass's Pillow mode.
-    Subclasses should typically override this. Default implementation returns
-    zero."""
+    Subclasses should typically override this. Subclasses are not required to
+    return a consistent value for multiple evaluations of the same point (this
+    helps with the implementation of certain types of noise). Therefore, callers
+    that need consistency should cache the value if it is needed more than once.
+    Default implementation returns zero."""
     return 0
   
   def step_frame(self):
