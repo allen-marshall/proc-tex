@@ -5,19 +5,20 @@ import time
 import numpy
 import pyopencl
 
-from proc_tex.texture_base import OpenCLTimeSpaceTexture2D
+from proc_tex.texture_base import TimeSpaceTexture2D
 import proc_tex.geom
 import proc_tex.vec_2d
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
+_NUM_SPACE_DIMS = 2
 
 class DistanceMetrics:
   METRIC_L2_NORM = 0
   METRIC_L2_NORM_SQUARED = 1
   METRIC_DEFAULT = METRIC_L2_NORM
 
-class OpenCLCellNoise2D(OpenCLTimeSpaceTexture2D):
+class OpenCLCellNoise2D(TimeSpaceTexture2D):
   """A cellular noise generator based on Worley's grid-based optimization.
   Animation causes the cell points to move randomly."""
   def __init__(self, cl_context, num_grid_rows, num_grid_cols, pts_per_square,
@@ -34,8 +35,13 @@ class OpenCLCellNoise2D(OpenCLTimeSpaceTexture2D):
     point_max_speed - Maximum point speed, in space units per frame.
     point_max_accel - Maximum point acceleration, in space units per frame
       squared."""
-    super(OpenCLCellNoise2D, self).__init__(_NUM_CHANNELS, _DTYPE, cl_context)
+    super(OpenCLCellNoise2D, self).__init__(_NUM_CHANNELS, _DTYPE,
+      _NUM_SPACE_DIMS)
     
+    if pts_per_square <= 0:
+      raise ValueError("Must have at least one point per grid square.")
+    
+    self.cl_context = cl_context
     self.num_grid_cols = num_grid_cols
     self.num_grid_rows = num_grid_rows
     self.square_width = 1 / num_grid_cols
@@ -44,9 +50,6 @@ class OpenCLCellNoise2D(OpenCLTimeSpaceTexture2D):
     self.metric = metric
     self.point_max_speed = point_max_speed
     self.point_max_accel = point_max_accel
-    
-    if pts_per_square <= 0:
-      raise ValueError("Must have at least one point per grid square.")
     
     # Generate the Numpy array of cell points.
     num_grid_squares = num_grid_cols * num_grid_rows
