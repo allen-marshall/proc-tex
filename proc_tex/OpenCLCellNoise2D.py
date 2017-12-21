@@ -79,6 +79,9 @@ class OpenCLCellNoise2D(TimeSpaceTexture2D):
     result_array = numpy.empty(result_shape, dtype=_DTYPE)
     result_size_bytes = result_array.nbytes
     
+    # Make sure eval_pts has the required memory layout.
+    eval_pts = numpy.ascontiguousarray(eval_pts)
+    
     # Create buffers for the OpenCL kernels.
     eval_pts_buffer = pyopencl.Buffer(self.cl_context,
       pyopencl.mem_flags.READ_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,

@@ -1,5 +1,5 @@
 import numpy
-import cv2
+import skvideo.io
 
 class TimeSpaceTexture2D:
   """Base class for 2D animated textures.
@@ -63,36 +63,52 @@ class TimeSpaceTexture2D:
     return self.evaluate(eval_pts)
   
   def to_video(self, pixel_dims, space_bounds, num_frames, frames_per_second,
-    filename):
-    """Generates a video starting at the current frame using OpenCV.
+    filename, pix_fmt, codec='libvpx', eval_pts=None):
+    """Generates a video starting at the current frame.
     This method has the side effect of moving the current frame forward by
-    num_frames. Since OpenCV videos presumably require the number of spatial
-    dimensions to be 2, this method also requires that. Since OpenCV videos
-    don't seem to work well with numbers of channels other than 3, this method
-    will duplicate channels if the number of channels is lower and drop channels
-    if it is higher.
+    num_frames. Since the video library used probably requires the number of
+    spatial dimensions to be 2, this method also requires that.
     pixel_dims - See to_image.
     space_bounds - See to_image.
     num_frames - Number of frames to include in the video.
     frames_per_second - Number of frames per second to use in the video.
-    filename - Location at which to store the video."""
+    filename - Location at which to store the video.
+    pix_fmt - Input pixel format string to pass to FFmpeg.
+    codec - Video codec string to pass to FFmpeg.
+    eval_pts - See to_image."""
     if self.num_space_dims != 2:
       raise ValueError(
         'Cannot make videos with number of dimensions other than 2.')
+    
     # Precompute the evaluation points so we don't have to recompute them every
     # frame.
-    eval_pts = self.gen_eval_pts(pixel_dims, space_bounds)
+    if eval_pts is None:
+      eval_pts = self.gen_eval_pts(pixel_dims, space_bounds)
+    video = None
     try:
-      fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-      video = cv2.VideoWriter(filename, fourcc, frames_per_second, pixel_dims)
+      video_input_dict = {
+        '-pix_fmt' : pix_fmt,
+      }
+      video_output_dict = {
+        '-r' : str(frames_per_second),
+        '-codec:v' : codec,
+        '-frames:v' : str(num_frames),
+        '-s' : '{}x{}'.format(eval_pts.shape[0], eval_pts.shape[1]),
+      }
+      video = skvideo.io.FFmpegWriter(filename, inputdict=video_input_dict,
+        outputdict=video_output_dict, verbosity=999999)
       for frame_idx in range(num_frames):
         frame = self.to_image(pixel_dims, space_bounds, eval_pts=eval_pts)
-        video.write(frame)
-        print('Frame written')
+        
+        # TODO: Fix this.
+        frame = (frame * 255).astype(numpy.uint8)
+        
+        video.writeFrame(frame)
+        print('Frame {} written'.format(frame_idx))
         self.step_frame()
     finally:
       if video is not None:
-        video.release()
+        video.close()
   
   def gen_eval_pts(self, pixel_dims, space_bounds):
     """Generates a Numpy array of evaluation points.
@@ -100,20 +116,24 @@ class TimeSpaceTexture2D:
     eval_pts parameter.
     pixel_dims - See to_image.
     space_bounds - See to_image."""
-    # TODO: It might be possible to vectorize this method better using Numpy
-    # features.
-    space_widths = [space_bounds[dim,1] - space_bounds[dim,0] for dim in range(self.num_space_dims)]
-    eval_pts = numpy.empty(pixel_dims + (self.num_space_dims,))
-    for pixel_idx in numpy.ndindex(pixel_dims):
-      pixel_pt = numpy.array(pixel_idx) + 0.5
-      space_pt = pixel_pt * space_widths / pixel_dims + space_bounds[:,0]
-      
-      # If the number of pixel dimensions is 2 or more, flip along the second
-      # dimension to account for the fact that OpenCV treats positive y as down.
-      # TODO: Is this the best place to do this?
-      if self.num_space_dims >= 2:
-        space_pt[1] = space_bounds[1,1] - space_pt[1]
-      
-      eval_pts[tuple(pixel_idx)] = space_pt
+    # convert arguments to Numpy arrays so we can use the arithmetic operations.
+    pixel_dims = numpy.array(pixel_dims)
+    space_bounds = numpy.array(space_bounds)
+    
+    space_widths = numpy.array(
+      [space_bounds[dim,1] - space_bounds[dim,0] for dim in range(self.num_space_dims)])
+    
+    pixel_dims_ranges = [numpy.arange(dim) for dim in pixel_dims]
+    
+    # Initialize each evaluation point to match its pixel coordinates.
+    eval_pts = numpy.asarray(numpy.meshgrid(*pixel_dims_ranges)).astype(
+      numpy.float64)
+    eval_pts = numpy.rollaxis(eval_pts, 0, len(eval_pts.shape))
+    
+    # Convert from pixel coordinates to texture space coordinates.
+    eval_pts += 0.5
+    scale = space_widths / pixel_dims
+    offset = space_bounds[:,0]
+    eval_pts = eval_pts * scale + offset
     
     return eval_pts
