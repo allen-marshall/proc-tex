@@ -1,10 +1,11 @@
-import numpy
-import skvideo.io
+import subprocess
 
-class TimeSpaceTexture2D:
-  """Base class for 2D animated textures.
+import numpy
+
+class TimeSpaceTexture:
+  """Base class for still or animated textures.
   Textures of this type support two dimensions of space and one of time. This
-  class can also be used for non-animated textures by simply not overriding
+  class can be used for non-animated textures by simply not overriding
   step_frame."""
   def __init__(self, num_channels, dtype, num_space_dims):
     """Initializer.
@@ -63,11 +64,11 @@ class TimeSpaceTexture2D:
     return self.evaluate(eval_pts)
   
   def to_video(self, pixel_dims, space_bounds, num_frames, frames_per_second,
-    filename, pix_fmt, codec='libvpx', eval_pts=None):
+    filename, pix_fmt, codec='libvpx-vp9', codec_params=[], eval_pts=None):
     """Generates a video starting at the current frame.
     This method has the side effect of moving the current frame forward by
-    num_frames. Since the video library used probably requires the number of
-    spatial dimensions to be 2, this method also requires that.
+    num_frames. Since FFmpeg requires the number of spatial dimensions to be 2,
+    this method also requires that.
     pixel_dims - See to_image.
     space_bounds - See to_image.
     num_frames - Number of frames to include in the video.
@@ -75,6 +76,7 @@ class TimeSpaceTexture2D:
     filename - Location at which to store the video.
     pix_fmt - Input pixel format string to pass to FFmpeg.
     codec - Video codec string to pass to FFmpeg.
+    codec_params - Extra codec parameters to pass to FFmpeg.
     eval_pts - See to_image."""
     if self.num_space_dims != 2:
       raise ValueError(
@@ -84,31 +86,34 @@ class TimeSpaceTexture2D:
     # frame.
     if eval_pts is None:
       eval_pts = self.gen_eval_pts(pixel_dims, space_bounds)
-    video = None
+    
+    # Start the FFmpeg process.
+    video_size_arg = '{}x{}'.format(eval_pts.shape[0], eval_pts.shape[1])
+    global_args = ['-y']
+    input_args = ['-f', 'rawvideo', '-pixel_format', pix_fmt,
+      '-video_size', video_size_arg, '-framerate', str(frames_per_second),
+      '-i', '-',]
+    output_args = ['-r', str(frames_per_second),
+      '-codec:v', codec] + codec_params + ['-frames:v', str(num_frames),
+      '-s', video_size_arg, filename]
+    ffmpeg_process = None
     try:
-      video_input_dict = {
-        '-pix_fmt' : pix_fmt,
-      }
-      video_output_dict = {
-        '-r' : str(frames_per_second),
-        '-codec:v' : codec,
-        '-frames:v' : str(num_frames),
-        '-s' : '{}x{}'.format(eval_pts.shape[0], eval_pts.shape[1]),
-      }
-      video = skvideo.io.FFmpegWriter(filename, inputdict=video_input_dict,
-        outputdict=video_output_dict, verbosity=999999)
+      ffmpeg_process = subprocess.Popen(
+        ['ffmpeg'] + global_args + input_args + output_args,
+        stdin=subprocess.PIPE)
+      
+      # Generate frames.
       for frame_idx in range(num_frames):
         frame = self.to_image(pixel_dims, space_bounds, eval_pts=eval_pts)
         
-        # TODO: Fix this.
-        frame = (frame * 255).astype(numpy.uint8)
+        ffmpeg_process.stdin.write(frame.tobytes())
         
-        video.writeFrame(frame)
-        print('Frame {} written'.format(frame_idx))
         self.step_frame()
+    
     finally:
-      if video is not None:
-        video.close()
+      if ffmpeg_process is not None:
+        ffmpeg_process.stdin.close()
+        ffmpeg_process.wait()
   
   def gen_eval_pts(self, pixel_dims, space_bounds):
     """Generates a Numpy array of evaluation points.

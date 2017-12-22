@@ -5,7 +5,7 @@ import time
 import numpy
 import pyopencl
 
-from proc_tex.texture_base import TimeSpaceTexture2D
+from proc_tex.texture_base import TimeSpaceTexture
 import proc_tex.geom
 import proc_tex.vec_2d
 
@@ -18,7 +18,7 @@ class DistanceMetrics:
   METRIC_L2_NORM_SQUARED = 1
   METRIC_DEFAULT = METRIC_L2_NORM
 
-class OpenCLCellNoise2D(TimeSpaceTexture2D):
+class OpenCLCellNoise2D(TimeSpaceTexture):
   """A cellular noise generator based on Worley's grid-based optimization.
   Animation causes the cell points to move randomly."""
   def __init__(self, cl_context, num_grid_rows, num_grid_cols, pts_per_square,
