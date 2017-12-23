@@ -50,13 +50,24 @@ double3 loopingDelta3D(double3 pt0, double3 pt1) {
 }
 
 /*
- * Converts a (normalized) texture point for a sphere-mapped texture into
- * Cartesian coordinates.
+ * Converts a point in spherical coordinates to Cartesian coordinates.
  */
-double3 sphericalToCartesian(double2 pt, double radius) {
+double3 sphericalToCartesian(double3 pt) {
+  double sinPitch = sin(pt.y);
+  return (double3) (cos(pt.x) * sinPitch, sin(pt.x) * sinPitch, cos(pt.y))
+    * pt.z;
+}
+
+/*
+ * Converts a (normalized) texture point for a sphere-mapped texture into
+ * Cartesian coordinates. This method differs from sphericalToCartesian in that
+ * the pitch and yaw are expected to be in the range [0, 1] instead of being in
+ * radians, and in that the sphere's center is assumed to be at (0.5, 0.5, 0.5)
+ * instead of (0, 0, 0), which means the resulting coordinates will be
+ * normalized if radius is less than or equal to 1.
+ */
+double3 texSphericalToCartesian(double2 pt, double radius) {
   double yaw = (pt.x - 0.5) * 2.0 * M_PI;
   double pitch = pt.y * M_PI;
-  double sinPitch = sin(pitch);
-  return (double3) (cos(yaw) * sinPitch, sin(yaw) * sinPitch, cos(pitch))
-    * radius;
+  return sphericalToCartesian((double3) (yaw, pitch, radius)) + 0.5;
 }

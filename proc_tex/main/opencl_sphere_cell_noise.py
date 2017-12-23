@@ -21,5 +21,5 @@ if __name__ == '__main__':
   
   cv2.imwrite('./example.png', image)
   
-  # texture.to_video(None, None, 120, 30, './example.webm', pix_fmt='gray16le',
-  #   codec_params=['-lossless', '0'], eval_pts=eval_pts)
+  texture.to_video(None, None, 120, 30, './example.webm', pix_fmt='gray16le',
+    codec_params=['-lossless', '0'], eval_pts=eval_pts)

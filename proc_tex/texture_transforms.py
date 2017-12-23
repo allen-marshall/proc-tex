@@ -19,6 +19,9 @@ class UnaryTransformedTexture(TimeSpaceTexture):
   
   def evaluate(self, eval_pts):
     return self.transform(self.src_texture.evaluate(eval_pts))
+  
+  def step_frame(self):
+    self.src_texture.step_frame()
 
 def tex_scale_to_region(src_vals, min_value=0, max_value=1):
   """Scales and offsets a floating point texture's values to the given range.

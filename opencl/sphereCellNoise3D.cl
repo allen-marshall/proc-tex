@@ -37,12 +37,12 @@ __kernel void sphereCellNoise3D(const uint numBoxesH, const uint numPtsPerBox,
 {
   // Compute the evaluation point, normalized into the base square (unit square
   // centered at (0.5, 0.5)).
-  size_t pixel_idx = get_global_id(0);
-  double2 evalPt = evalPts[pixel_idx];
+  size_t pixelIdx = get_global_id(0);
+  double2 evalPt = evalPts[pixelIdx];
   normalizeTexPt2D(&evalPt);
   
   // Compute the Cartesian position corresponding to the evaluation point.
-  double3 evalPtCart = sphericalToCartesian(evalPt, 0.5) + 0.5;
+  double3 evalPtCart = texSphericalToCartesian(evalPt, 0.5);
   
   double boxSize = 1.0 / numBoxesH;
   
@@ -69,9 +69,9 @@ __kernel void sphereCellNoise3D(const uint numBoxesH, const uint numPtsPerBox,
           double newDist = computeDist3DDelta(metricID, delta);
           if (newDist < minDist) {
             // Uncommenting this line and commenting out other lines that modify
-            // result[pixel_idx] can be used to generate a voronoi diagram instead
+            // result[pixelIdx] can be used to generate a voronoi diagram instead
             // of cellular noise. Might be useful some time.
-            // result[pixel_idx] = ptIdx / (double) (numBoxesH * numBoxesH * numBoxesH * numPtsPerBox);
+            // result[pixelIdx] = ptIdx / (double) (numBoxesH * numBoxesH * numBoxesH * numPtsPerBox);
             minDist = newDist;
           }
         }
@@ -79,5 +79,5 @@ __kernel void sphereCellNoise3D(const uint numBoxesH, const uint numPtsPerBox,
     }
   }
   
-  result[pixel_idx] = minDist;
+  result[pixelIdx] = minDist;
 }
