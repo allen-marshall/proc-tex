@@ -16,6 +16,7 @@ class TimeSpaceTexture:
     self.num_channels = num_channels
     self.dtype = dtype
     self.num_space_dims = num_space_dims
+    self.curr_frame = 0
   
   def evaluate(self, eval_pts):
     """Gets the pixel values at the specified locations. Subclasses should
@@ -32,6 +33,14 @@ class TimeSpaceTexture:
       shape as eval_pts, except with the last dimension size changed to the
       number of channels supported by this texture."""
     return numpy.zeros(eval_pts.size[:-1] + (self.num_channels,))
+  
+  def set_frame(self, frame_idx):
+    """Moves internal state to the specified frame.
+    Does not support going back before the current frame.
+    frame_idx - Index of the frame to go to."""
+    while self.curr_frame < frame_idx:
+      self.step_frame()
+      self.curr_frame += 1
   
   def step_frame(self):
     """Moves internal state to the next frame.
@@ -103,12 +112,13 @@ class TimeSpaceTexture:
         stdin=subprocess.PIPE)
       
       # Generate frames.
+      start_frame = self.curr_frame
       for frame_idx in range(num_frames):
+        self.set_frame(start_frame + frame_idx)
+        
         frame = self.to_image(pixel_dims, space_bounds, eval_pts=eval_pts)
         
         ffmpeg_process.stdin.write(frame.tobytes())
-        
-        self.step_frame()
     
     finally:
       if ffmpeg_process is not None:
