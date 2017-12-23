@@ -1,0 +1,65 @@
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+// TODO: Support more distance metrics.
+typedef enum type_distMetric {
+  L2_NORM,
+  L2_NORM_SQUARED
+} distMetric;
+
+/*
+ * Distance metric for L2_NORM, 2D, delta-based.
+ */
+double distL2Norm2DDelta(double2 delta) {
+  return length(delta);
+}
+
+/*
+ * Distance metric for L2_NORM_SQUARED, 2D, delta-based.
+ */
+double distL2NormSquared2DDelta(double2 delta) {
+  return delta.x * delta.x + delta.y * delta.y;
+}
+
+/*
+ * Distance metric for L2_NORM, 3D, delta-based.
+ */
+double distL2Norm3DDelta(double3 delta) {
+  return length(delta);
+}
+
+/*
+ * Distance metric for L2_NORM_SQUARED, 3D, delta-based.
+ */
+double distL2NormSquared3DDelta(double3 delta) {
+  return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+}
+
+/*
+ * Computes the distance metric between two 2D points based on the absolute
+ * delta x and delta y between the points.
+ */
+double computeDist2DDelta(distMetric metricID, double2 delta) {
+  switch (metricID) {
+  case L2_NORM:
+    return distL2Norm2DDelta(delta);
+  case L2_NORM_SQUARED:
+    return distL2NormSquared2DDelta(delta);
+  default:
+    return distL2Norm2DDelta(delta);
+  }
+}
+
+/*
+ * Computes the distance metric between two 3D points based on the absolute
+ * delta x, delta y, and delta z between the points.
+ */
+double computeDist3DDelta(distMetric metricID, double3 delta) {
+  switch (metricID) {
+  case L2_NORM:
+    return distL2Norm3DDelta(delta);
+  case L2_NORM_SQUARED:
+    return distL2NormSquared3DDelta(delta);
+  default:
+    return distL2Norm3DDelta(delta);
+  }
+}

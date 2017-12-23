@@ -1,0 +1,52 @@
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+/*
+ * Translates a grid box coordinate to the equivalent coordinate with grid
+ * box inside the base unit box.
+ * numBoxesH - The number of box spaces lying along each axis of the base unit
+ *   box.
+ */
+uint normalizeBoxCoord(uint numBoxesH, int coord) {
+  if (coord < 0) {
+    coord += numBoxesH;
+  }
+  else if (coord >= numBoxesH) {
+    coord -= numBoxesH;
+  }
+  return (uint) coord;
+}
+
+/*
+ * Determines the normalized coordinates of a 2D grid box using
+ * normalizeBoxCoord.
+ */
+uint2 normalizeBoxCoords2D(uint numBoxesH, int2 coords) {
+  return (uint2) (normalizeBoxCoord(numBoxesH, coords.x),
+                  normalizeBoxCoord(numBoxesH, coords.y));
+}
+
+/*
+ * Determines the normalized coordinates of a 3D grid box using
+ * normalizeBoxCoord.
+ */
+uint3 normalizeBoxCoords3D(uint numBoxesH, int3 coords) {
+  return (uint3) (normalizeBoxCoord(numBoxesH, coords.x),
+                  normalizeBoxCoord(numBoxesH, coords.y),
+                  normalizeBoxCoord(numBoxesH, coords.z));
+}
+
+/*
+ * Determines the (normalized) coordinates of the 2D grid box containing the
+ * specified (normalized) texture point.
+ */
+uint2 findBoxForPt2D(double boxSize, double2 texPt) {
+  return convert_uint2(trunc(texPt / boxSize));
+}
+
+/*
+ * Determines the (normalized) coordinates of the 3D grid box containing the
+ * specified (normalized) texture point.
+ */
+uint3 findBoxForPt3D(double boxSize, double3 texPt) {
+  return convert_uint3(trunc(texPt / boxSize));
+}
