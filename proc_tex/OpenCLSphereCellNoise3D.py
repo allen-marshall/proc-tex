@@ -21,8 +21,8 @@ class DistanceMetrics:
   METRIC_DEFAULT = METRIC_L2_NORM
 
 class OpenCLSphereCellNoise3D(TimeSpaceTexture):
-  """Computes sphere-mapped 3D cellular noise using a modified version of
-  Worley's grid-based cellular noise algorithm.
+  """Computes sphere-mapped 3D cellular noise.
+  Uses a modified version of Worley's grid-based cellular noise algorithm.
   Animation causes the cell points to move randomly."""
   def __init__(self, cl_context, num_boxes_h, pts_per_box,
     metric = DistanceMetrics.METRIC_DEFAULT, point_max_speed=0.01,
@@ -31,8 +31,7 @@ class OpenCLSphereCellNoise3D(TimeSpaceTexture):
     cl_context - The PyOpenCL context to use for computation.
     num_boxes_h - The width, height, and depth (all the same) of the grid, in
       number of grid boxes. Should be at least 1.
-    pts_per_box - The number of cell points per grid square. Should be at
-      least 1.
+    pts_per_box - The number of cell points per grid box. Should be at least 1.
     metric - One of the constants from DistanceMetrics that specifies the
       distance metric to use.
     point_max_speed - Maximum point speed, in space units per frame.

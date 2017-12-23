@@ -50,6 +50,13 @@ double3 loopingDelta3D(double3 pt0, double3 pt1) {
 }
 
 /*
+ * Converts a point in magnitude-angle coordinates to Cartesian coordinates.
+ */
+double2 circularToCartesian(double2 pt) {
+  return (double2) (cos(pt.y), sin(pt.y)) * pt.x;
+}
+
+/*
  * Converts a point in spherical coordinates to Cartesian coordinates.
  */
 double3 sphericalToCartesian(double3 pt) {
