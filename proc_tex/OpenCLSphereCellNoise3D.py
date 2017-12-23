@@ -6,7 +6,7 @@ import numpy
 import pyopencl
 
 from proc_tex.texture_base import TimeSpaceTexture
-import proc_tex.geom
+import proc_tex.dist_metrics
 import proc_tex.vec_2d
 import proc_tex.vec_3d
 
@@ -14,18 +14,12 @@ _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
 _NUM_SPACE_DIMS = 2
 
-# TODO: Avoid duplicating this in multiple files.
-class DistanceMetrics:
-  METRIC_L2_NORM = 0
-  METRIC_L2_NORM_SQUARED = 1
-  METRIC_DEFAULT = METRIC_L2_NORM
-
 class OpenCLSphereCellNoise3D(TimeSpaceTexture):
   """Computes sphere-mapped 3D cellular noise.
   Uses a modified version of Worley's grid-based cellular noise algorithm.
   Animation causes the cell points to move randomly."""
   def __init__(self, cl_context, num_boxes_h, pts_per_box,
-    metric = DistanceMetrics.METRIC_DEFAULT, point_max_speed=0.01,
+    metric = proc_tex.dist_metrics.METRIC_DEFAULT, point_max_speed=0.01,
     point_max_accel=0.005):
     """Initializer.
     cl_context - The PyOpenCL context to use for computation.
