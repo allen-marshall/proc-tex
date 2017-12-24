@@ -23,14 +23,14 @@ if __name__ == '__main__':
     texture += params[2] * tex_scale_to_region(cell_noise)
   
   # Combine Perlin noise textures.
-  perlin_noise_params = [(50, 0.02), (200, -0.05)]
+  perlin_noise_params = [(50, 0.02), (100, -0.05)]
   for params in perlin_noise_params:
     perlin_noise = OpenCLSpherePerlinNoise3D(cl_context, params[0])
     texture += params[1] * tex_scale_to_region(perlin_noise)
   
   texture = tex_to_dtype(tex_scale_to_region(texture), numpy.uint16,
     scale=65535)
-  eval_pts = texture.gen_eval_pts((2048, 2048), numpy.array([[0,1], [0,1]]))
+  eval_pts = texture.gen_eval_pts((1024, 1024), numpy.array([[0,1], [0,1]]))
   image = texture.to_image(None, None, eval_pts=eval_pts)
   # cv2.imshow('image', image)
   # cv2.waitKey(0)
@@ -38,5 +38,5 @@ if __name__ == '__main__':
   
   cv2.imwrite('./example.png', image)
   
-  # texture.to_video(None, None, 120, 30, './example.webm', pix_fmt='gray16le',
-  #   codec_params=['-lossless', '0'], eval_pts=eval_pts)
+  texture.to_video(None, None, 120, 30, './example.webm', pix_fmt='gray16le',
+    codec_params=['-lossless', '1'], eval_pts=eval_pts)

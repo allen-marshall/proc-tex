@@ -12,8 +12,6 @@ _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
 _NUM_SPACE_DIMS = 2
 
-# TODO: Implement animation.
-
 class OpenCLSpherePerlinNoise3D(TimeSpaceTexture):
   """Computes sphere-mapped 3D Perlin noise."""
   def __init__(self, cl_context, num_boxes_h):
