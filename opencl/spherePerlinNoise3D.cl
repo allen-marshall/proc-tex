@@ -1,8 +1,8 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-#include "distMetrics.cl"
-#include "texCoordTransforms.cl"
-#include "gridCoordTransforms.cl"
+#include "distMetrics.clh"
+#include "texCoordTransforms.clh"
+#include "gridCoordTransforms.clh"
 
 double gradDotProd(uint numBoxesH, double boxSize, uint3 boxCoords,
   double3 evalPt, __global const double *gradients)

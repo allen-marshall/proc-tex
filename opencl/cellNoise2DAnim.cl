@@ -1,6 +1,6 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-#include "texCoordTransforms.cl"
+#include "texCoordTransforms.clh"
 
 void computeBoxBounds(const uint numBoxesH, const uint numPtsPerBox,
   const uint ptIdx, double2 *lowBounds, double2 *highBounds)

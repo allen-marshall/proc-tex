@@ -1,8 +1,8 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-#include "distMetrics.cl"
-#include "texCoordTransforms.cl"
-#include "gridCoordTransforms.cl"
+#include "distMetrics.clh"
+#include "texCoordTransforms.clh"
+#include "gridCoordTransforms.clh"
 
 /*
  * Determines the range of indices in the cell point array at which to find the
