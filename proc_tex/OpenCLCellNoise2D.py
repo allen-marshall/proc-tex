@@ -58,10 +58,10 @@ class OpenCLCellNoise2D(TimeSpaceTexture):
       dtype=numpy.float64)
     self.cell_vels = numpy.empty_like(self.cell_pts)
     cell_pts_buffer = pyopencl.Buffer(self.cl_context,
-      pyopencl.mem_flags.READ_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
+      pyopencl.mem_flags.WRITE_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
       hostbuf=self.cell_pts)
     cell_vels_buffer = pyopencl.Buffer(self.cl_context,
-      pyopencl.mem_flags.READ_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
+      pyopencl.mem_flags.WRITE_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
       hostbuf=self.cell_vels)
     with pyopencl.CommandQueue(self.cl_context) as cl_queue:
       self.cl_program_anim.cellNoise2DAnimInit(cl_queue,
