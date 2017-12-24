@@ -7,8 +7,6 @@ import pyopencl
 
 from proc_tex.texture_base import TimeSpaceTexture
 import proc_tex.dist_metrics
-import proc_tex.vec_2d
-import proc_tex.vec_3d
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
@@ -34,18 +32,22 @@ class OpenCLSpherePerlinNoise3D(TimeSpaceTexture):
     with open('opencl/spherePerlinNoise3D.cl', 'r', encoding='utf-8') as program_file:
       self.cl_program_noise = pyopencl.Program(self.cl_context, program_file.read()) \
         .build(options=['-I', 'opencl/include/'])
+    with open('opencl/perlinNoise3DAnim.cl', 'r', encoding='utf-8') as program_file:
+      self.cl_program_anim = pyopencl.Program(self.cl_context, program_file.read()) \
+        .build(options=['-I', 'opencl/include/'])
     
     # Generate the Numpy array of gradients.
+    seed = random.randrange(0, 2 ** 32)
     num_grid_boxes = num_boxes_h * num_boxes_h * num_boxes_h
     self.gradients = numpy.empty((num_grid_boxes, 3), dtype=numpy.float64)
-    for box_x in range(num_boxes_h):
-      for box_y in range(num_boxes_h):
-        for box_z in range(num_boxes_h):
-          gradient_idx = (box_z * num_boxes_h + box_y) * num_boxes_h + box_x
-          gradient_yaw = random.uniform(0, math.tau)
-          gradient_pitch = random.uniform(0, math.pi)
-          self.gradients[gradient_idx] = proc_tex.vec_3d.vec3d_from_spherical(
-            gradient_yaw, gradient_pitch, 1)
+    gradients_buffer = pyopencl.Buffer(self.cl_context,
+      pyopencl.mem_flags.WRITE_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
+      hostbuf=self.gradients)
+    with pyopencl.CommandQueue(self.cl_context) as cl_queue:
+      self.cl_program_anim.perlinNoise3DAnimInit(cl_queue,
+        (self.gradients.shape[0],), None, numpy.uint32(seed), gradients_buffer)
+      
+      pyopencl.enqueue_copy(cl_queue, self.gradients, gradients_buffer)
   
   def evaluate(self, eval_pts):
     # TODO: Figure out how to make this work with multiple devices
@@ -77,3 +79,14 @@ class OpenCLSpherePerlinNoise3D(TimeSpaceTexture):
       pyopencl.enqueue_copy(cl_queue, result_array, result_buffer)
     
     return result_array
+  
+  def step_frame(self):
+    seed = random.randrange(0, 2 ** 32)
+    gradients_buffer = pyopencl.Buffer(self.cl_context,
+      pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
+      hostbuf=self.gradients)
+    with pyopencl.CommandQueue(self.cl_context) as cl_queue:
+      self.cl_program_anim.perlinNoise3DAnimUpdate(cl_queue,
+        (self.gradients.shape[0],), None, numpy.uint32(seed), gradients_buffer)
+      
+      pyopencl.enqueue_copy(cl_queue, self.gradients, gradients_buffer)
