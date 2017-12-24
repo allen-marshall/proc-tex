@@ -1,30 +1,41 @@
 #pragma once
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-const long MODULUS = 2147483647;
-const long MULTIPLIER = 16807;
+const uint MODULUS = 2147483647;
+const uint MULTIPLIER = 16807;
 
 void updateSeed(uint *seed) {
   if (seed) {
     if (*seed == 0) {
       *seed = 1;
     }
-    *seed = (*seed * MULTIPLIER) % MODULUS;
+    *seed = (*seed * (ulong) MULTIPLIER) % MODULUS;
   }
 }
 
+uint initWorkerSeed(uint seedBase, uint workerID) {
+  uint result = seedBase ^ workerID;
+  // TODO: Replace this with something that has some theoretical justification,
+  // if possible. I just put it here because the randomness doesn't seem to work
+  // well without it.
+  for (int i = 0; i < (((seedBase ^ workerID) * 10000) % 1009); i++) {
+    updateSeed(&result);
+  }
+  return result;
+}
+
 /*
- * Generates an approximately uniform random double in the range [0, 1), and
+ * Generates an approximately uniform random double in the range [0, 1], and
  * updates the seed value for use in later random number calculations.
  */
 double randDouble(uint *seed) {
   updateSeed(seed);
-  return (*seed - 1) / (double) MODULUS;
+  return (*seed - 1) / (double) (MODULUS - 2);
 }
 
 /*
  * Generates an approximately uniform random double in the range
- * [minVal, maxVal), and updates the seed value for use in later random number
+ * [minVal, maxVal], and updates the seed value for use in later random number
  * calculations.
  */
 double randDoubleInRange(uint *seed, double minVal, double maxVal) {

@@ -37,7 +37,7 @@ __kernel void cellNoise3DAnimInit(uint seedBase, uint numBoxesH,
   __global double *cellPtVels)
 {
   size_t ptIdx = get_global_id(0);
-  uint seed = seedBase ^ ptIdx;
+  uint seed = initWorkerSeed(seedBase, ptIdx);
   
   // Generate random initial position.
   double3 lowBounds, highBounds;
@@ -74,7 +74,7 @@ __kernel void cellNoise3DAnimUpdate(uint seedBase, uint numBoxesH,
   __global double *cellPtVels)
 {
   size_t ptIdx = get_global_id(0);
-  uint seed = seedBase ^ ptIdx;
+  uint seed = initWorkerSeed(seedBase, ptIdx);
   
   // Generate random acceleration.
   double3 accel = randVecWithMagnitude3D(&seed,

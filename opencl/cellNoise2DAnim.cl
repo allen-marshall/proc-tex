@@ -36,7 +36,7 @@ __kernel void cellNoise2DAnimInit(uint seedBase, uint numBoxesH,
   __global double2 *cellPtVels)
 {
   size_t ptIdx = get_global_id(0);
-  uint seed = seedBase ^ ptIdx;
+  uint seed = initWorkerSeed(seedBase, ptIdx);
   
   // Generate random initial position.
   double2 lowBounds, highBounds;
@@ -72,7 +72,7 @@ __kernel void cellNoise2DAnimUpdate(uint seedBase, uint numBoxesH,
   __global double2 *cellPts, __global double2 *cellPtVels)
 {
   size_t ptIdx = get_global_id(0);
-  uint seed = seedBase ^ ptIdx;
+  uint seed = initWorkerSeed(seedBase, ptIdx);
   
   // Generate random acceleration.
   double2 accel = randVecWithMagnitude2D(&seed,
