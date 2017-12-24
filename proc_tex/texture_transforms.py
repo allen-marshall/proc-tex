@@ -16,6 +16,7 @@ class UnaryTransformedTexture(TimeSpaceTexture):
       src_texture.dtype, src_texture.num_space_dims)
     self.transform = transform
     self.src_texture = src_texture
+    self.curr_frame = src_texture.curr_frame
   
   def evaluate(self, eval_pts):
     return self.transform(self.src_texture.evaluate(eval_pts))
@@ -23,19 +24,8 @@ class UnaryTransformedTexture(TimeSpaceTexture):
   def set_frame(self, frame_idx):
     self.src_texture.set_frame(frame_idx)
 
-def tex_scale_to_region(src_vals, min_value=0, max_value=1):
-  """Scales and offsets a floating point texture's values to the given range.
-  Can be used as a texture transform function by specifying all arguments except
-  src_vals. When used in this way, each frame will be scaled and offset so that
-  its minimum texture value is min_value and its maximum is max_value. (All
-  channels receive the same scale and offset.) If this is not possible because
-  the texture values are all the same, all the values will be moved to halfway
-  between min_value and max_value. Note that each frame in a video is handled
-  separately, so the transform may not be uniform across video frames.
-  src_vals - The Numpy array of source texture values to transform.
-  min_value - The desired minimum texture value.
-  max_value - The desired maximum texture value.
-  Returns: The Numpy array of transformed texture values."""
+def _tex_scale_to_region_transform(src_vals, min_value, max_value):
+  """Transform function for tex_scale_to_region."""
   src_min_value = src_vals.min()
   src_max_value = src_vals.max()
   src_delta = src_max_value - src_min_value
@@ -48,13 +38,33 @@ def tex_scale_to_region(src_vals, min_value=0, max_value=1):
     offset = min_value - (src_min_value * scale)
     return src_vals * scale + offset
 
-def tex_to_dtype(src_vals, dtype, scale=1):
-  """Converts texture values to the given dtype per channel.
-  Can be used as a texture transform function by specifying all arguments except
-  src_vals.
-  src_vals - The Numpy array of source texture values to transform.
+def tex_scale_to_region(src, min_value=0, max_value=1):
+  """Scales and offsets a floating point texture's values to the given range.
+  Each frame will be scaled and offset so that its minimum texture value is
+  min_value and its maximum is max_value. (All channels receive the same scale
+  and offset in each frame.) If this is not possible because the texture values
+  are all the same, all the values will be moved to halfway between min_value
+  and max_value. Note that each frame in a video is handled separately, so the
+  transform may not be uniform across video frames.
+  src - The source texture to transform.
+  min_value - The desired minimum texture value.
+  max_value - The desired maximum texture value.
+  Returns: The transformed texture."""
+  return UnaryTransformedTexture(
+    lambda src_vals: _tex_scale_to_region_transform(src_vals, min_value, max_value),
+    src)
+
+def _tex_to_dtype_transform(src_vals, dtype, scale):
+  """Transform function for tex_to_dtype."""
+  return (src_vals * scale).astype(dtype)
+
+def tex_to_dtype(src, dtype, scale=1):
+  """Converts a texture to the given dtype for each channel.
+  src - The source texture to transform.
   scale - Value by which to multiply before the conversion. This can be useful
     for converting floating point images in the range [0, 1] into integer
     images in the range [0, 2^b - 1].
-  Returns: The Numpy array of transformed texture values."""
-  return (src_vals * scale).astype(dtype)
+  Returns: The transformed texture."""
+  return UnaryTransformedTexture(
+    lambda src_vals: _tex_to_dtype_transform(src_vals, dtype, scale),
+    src)

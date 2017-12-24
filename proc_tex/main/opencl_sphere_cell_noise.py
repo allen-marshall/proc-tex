@@ -4,15 +4,13 @@ import pyopencl
 
 from proc_tex.OpenCLSphereCellNoise3D import OpenCLSphereCellNoise3D
 import proc_tex.texture_transforms
-from proc_tex.texture_transforms import UnaryTransformedTexture
+from proc_tex.texture_transforms import tex_scale_to_region, tex_to_dtype
 
 if __name__ == '__main__':
   cl_context = pyopencl.create_some_context()
-  texture = UnaryTransformedTexture(
-    lambda src_vals: proc_tex.texture_transforms.tex_to_dtype(
-      proc_tex.texture_transforms.tex_scale_to_region(src_vals), numpy.uint16,
-      scale=65535),
-    OpenCLSphereCellNoise3D(cl_context, 4, 1))
+  texture = OpenCLSphereCellNoise3D(cl_context, 4, 1)
+  texture = tex_to_dtype(tex_scale_to_region(texture), numpy.uint16,
+    scale=65535)
   eval_pts = texture.gen_eval_pts((1024, 1024), numpy.array([[0,1], [0,1]]))
   image = texture.to_image(None, None, eval_pts=eval_pts)
   # cv2.imshow('image', image)

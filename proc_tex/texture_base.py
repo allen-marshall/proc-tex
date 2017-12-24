@@ -152,3 +152,82 @@ class TimeSpaceTexture:
     eval_pts = eval_pts * scale + offset
     
     return eval_pts
+  
+  def __add__(self, other):
+    """Texture addition.
+    See BinaryCombinedTexture for restrictions on what can be added."""
+    return BinaryCombinedTexture(self, other, lambda x,y: x + y)
+  
+  def __sub__(self, other):
+    """Texture subtraction.
+    See BinaryCombinedTexture for restrictions on what can be subtracted."""
+    return BinaryCombinedTexture(self, other, lambda x,y: x - y)
+  
+  def __rsub__(self, other):
+    """Right-hand side texture subtraction.
+    See BinaryCombinedTexture for restrictions on what can be subtracted."""
+    return BinaryCombinedTexture(other, self, lambda x,y: x - y)
+  
+  def __mul__(self, other):
+    """Texture multiplication.
+    See BinaryCombinedTexture for restrictions on what can be multiplied."""
+    return BinaryCombinedTexture(self, other, lambda x,y: x * y)
+  
+  def __rmul__(self, other):
+    """Right-hand side texture multiplication.
+    See BinaryCombinedTexture for restrictions on what can be multiplied."""
+    return BinaryCombinedTexture(other, self, lambda x,y: x * y)
+
+class ScalarConstantTexture(TimeSpaceTexture):
+  """Texture that outputs a constant scalar value on each channel."""
+  
+  def __init__(self, num_channels, dtype, num_space_dims, value):
+    """Initializer.
+    value - The constant scalar value to output."""
+    super(ScalarConstantTexture, self).__init__(num_channels, dtype,
+      num_space_dims)
+    self.value = value
+  
+  def evaluate(self, eval_pts):
+    return numpy.full(eval_pts.size[:-1] + (self.num_channels,), self.value)
+
+class BinaryCombinedTexture(TimeSpaceTexture):
+  """Used for implementing texture combination operations."""
+  
+  def __init__(self, src0, src1, combine):
+    """Combines two textures according to the specified combine function.
+    src0 and src1 should have the same number of space dimensions and channels.
+    At least one of the two must be a texture object, but one can be a scalar.
+    The dtype of the resulting texture is that of src0, or that of src1 if src0
+    is a scalar.
+    src0 - First texture to combine, or a scalar to combine with src1.
+    src1 - Second texture to combine, or a scalar to combine with src0.
+    combine - A combining function that takes two Numpy arrays of evaluated
+      texture points and combines them into one.
+    """
+    if not (isinstance(src0, TimeSpaceTexture) or isinstance(src1, TimeSpaceTexture)):
+      raise ValueError('Expected at least one source texture.')
+    
+    # Convert scalars to constant-valued textures.
+    if not isinstance(src0, TimeSpaceTexture):
+      src0 = ScalarConstantTexture(src1.num_channels, src1.dtype,
+        src1.num_space_dims, src0)
+    if not isinstance(src1, TimeSpaceTexture):
+      src1 = ScalarConstantTexture(src0.num_channels, src0.dtype,
+        src0.num_space_dims, src1)
+    
+    super(BinaryCombinedTexture, self).__init__(src0.num_channels, src0.dtype,
+      src0.num_space_dims)
+    
+    self.src0 = src0
+    self.src1 = src1
+    self.combine = combine
+    self.curr_frame = max(src0.curr_frame, src1.curr_frame)
+  
+  def evaluate(self, eval_pts):
+    return self.combine(self.src0.evaluate(eval_pts),
+      self.src1.evaluate(eval_pts))
+  
+  def set_frame(self, frame_idx):
+    self.src0.set_frame(frame_idx)
+    self.src1.set_frame(frame_idx)
