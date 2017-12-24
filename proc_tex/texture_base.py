@@ -32,7 +32,7 @@ class TimeSpaceTexture:
     returns: A Numpy array of evaluation results. This should have the same
       shape as eval_pts, except with the last dimension size changed to the
       number of channels supported by this texture."""
-    return numpy.zeros(eval_pts.size[:-1] + (self.num_channels,))
+    return numpy.zeros(eval_pts.shape[:-1] + (self.num_channels,))
   
   def set_frame(self, frame_idx):
     """Moves internal state to the specified frame.
@@ -158,6 +158,11 @@ class TimeSpaceTexture:
     See BinaryCombinedTexture for restrictions on what can be added."""
     return BinaryCombinedTexture(self, other, lambda x,y: x + y)
   
+  def __radd__(self, other):
+    """Right-hand side texture addition.
+    See BinaryCombinedTexture for restrictions on what can be added."""
+    return BinaryCombinedTexture(other, self, lambda x,y: x + y)
+  
   def __sub__(self, other):
     """Texture subtraction.
     See BinaryCombinedTexture for restrictions on what can be subtracted."""
@@ -189,7 +194,7 @@ class ScalarConstantTexture(TimeSpaceTexture):
     self.value = value
   
   def evaluate(self, eval_pts):
-    return numpy.full(eval_pts.size[:-1] + (self.num_channels,), self.value)
+    return numpy.full(eval_pts.shape[:-1] + (self.num_channels,), self.value)
 
 class BinaryCombinedTexture(TimeSpaceTexture):
   """Used for implementing texture combination operations."""
