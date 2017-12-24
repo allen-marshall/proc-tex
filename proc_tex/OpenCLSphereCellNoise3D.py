@@ -7,8 +7,6 @@ import pyopencl
 
 from proc_tex.texture_base import TimeSpaceTexture
 import proc_tex.dist_metrics
-import proc_tex.vec_2d
-import proc_tex.vec_3d
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
@@ -54,26 +52,25 @@ class OpenCLSphereCellNoise3D(TimeSpaceTexture):
         .build(options=['-I', 'opencl/include/'])
     
     # Generate the Numpy array of cell points.
+    seed = random.randrange(0, 2 ** 32)
     num_grid_boxes = num_boxes_h * num_boxes_h * num_boxes_h
     self.cell_pts = numpy.empty((num_grid_boxes * pts_per_box, 3),
       dtype=numpy.float64)
     self.cell_vels = numpy.empty_like(self.cell_pts)
-    for box_x in range(num_boxes_h):
-      for box_y in range(num_boxes_h):
-        for box_z in range(num_boxes_h):
-          box_bounds = self._grid_coords_to_bounds((box_x, box_y, box_z))
-          for box_pt_idx in range(pts_per_box):
-            pt_idx = ((box_z * num_boxes_h + box_y) * num_boxes_h + box_x) * pts_per_box + box_pt_idx
-            init_vel_mag = random.uniform(0, point_max_speed)
-            init_vel_yaw = random.uniform(0, math.tau)
-            init_vel_pitch = random.uniform(0, math.pi)
-            init_vel = proc_tex.vec_3d.vec3d_from_spherical(init_vel_yaw,
-              init_vel_pitch, init_vel_mag)
-            init_x = random.uniform(box_bounds[0,0], box_bounds[0,1])
-            init_y = random.uniform(box_bounds[1,0], box_bounds[1,1])
-            init_z = random.uniform(box_bounds[2,0], box_bounds[2,1])
-            self.cell_pts[pt_idx] = (init_x, init_y, init_z)
-            self.cell_vels[pt_idx] = init_vel
+    cell_pts_buffer = pyopencl.Buffer(self.cl_context,
+      pyopencl.mem_flags.READ_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
+      hostbuf=self.cell_pts)
+    cell_vels_buffer = pyopencl.Buffer(self.cl_context,
+      pyopencl.mem_flags.READ_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
+      hostbuf=self.cell_vels)
+    with pyopencl.CommandQueue(self.cl_context) as cl_queue:
+      self.cl_program_anim.cellNoise3DAnimInit(cl_queue,
+        (self.cell_pts.shape[0],), None, numpy.uint32(seed),
+        numpy.uint32(self.num_boxes_h), numpy.uint32(self.pts_per_box),
+        numpy.float64(self.point_max_speed), cell_pts_buffer, cell_vels_buffer)
+      
+      pyopencl.enqueue_copy(cl_queue, self.cell_pts, cell_pts_buffer)
+      pyopencl.enqueue_copy(cl_queue, self.cell_vels, cell_vels_buffer)
   
   def evaluate(self, eval_pts):
     # TODO: Figure out how to make this work with multiple devices
@@ -109,11 +106,7 @@ class OpenCLSphereCellNoise3D(TimeSpaceTexture):
     
   
   def step_frame(self):
-    # Compute a random acceleration for each cell point.
-    cell_accels = numpy.random.sample(self.cell_pts.shape)
-    cell_accels[:,0] *= math.tau
-    cell_accels[:,1] *= math.pi
-    cell_accels[:,2] *= self.point_max_accel
+    seed = random.randrange(0, 2 ** 32)
     
     # Create buffers for the OpenCL kernels.
     cell_pts_buffer = pyopencl.Buffer(self.cl_context,
@@ -122,15 +115,13 @@ class OpenCLSphereCellNoise3D(TimeSpaceTexture):
     cell_vels_buffer = pyopencl.Buffer(self.cl_context,
       pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
       hostbuf=self.cell_vels)
-    cell_accels_buffer = pyopencl.Buffer(self.cl_context,
-      pyopencl.mem_flags.READ_ONLY | pyopencl.mem_flags.COPY_HOST_PTR,
-      hostbuf=cell_accels)
     
     with pyopencl.CommandQueue(self.cl_context) as cl_queue:
       self.cl_program_anim.cellNoise3DAnimUpdate(cl_queue,
-        (self.cell_pts.shape[0],), None, numpy.uint32(self.num_boxes_h),
-        numpy.uint32(self.pts_per_box), numpy.float64(self.point_max_speed),
-        cell_pts_buffer, cell_vels_buffer, cell_accels_buffer)
+        (self.cell_pts.shape[0],), None, numpy.uint32(seed),
+        numpy.uint32(self.num_boxes_h), numpy.uint32(self.pts_per_box),
+        numpy.float64(self.point_max_speed),
+        numpy.float64(self.point_max_accel), cell_pts_buffer, cell_vels_buffer)
       
       pyopencl.enqueue_copy(cl_queue, self.cell_pts, cell_pts_buffer)
       pyopencl.enqueue_copy(cl_queue, self.cell_vels, cell_vels_buffer)

@@ -1,5 +1,6 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
+#include "random.clh"
 #include "texCoordTransforms.clh"
 
 void computeBoxBounds(const uint numBoxesH, const uint numPtsPerBox,
@@ -19,30 +20,69 @@ void computeBoxBounds(const uint numBoxesH, const uint numPtsPerBox,
 }
 
 /*
- * Updates positions of cell points for 3D cellular noise using the specified
- * velocities and accelerations.
+ * Randomly initializes positions and velocities of cell points for 3D cellular
+ * noise.
+ * seedBase - Random seed. This will be combined with the worker ID to generate
+ *   a separate seed for each worker.
  * numBoxesH - Number of grid box spaces lying along each axis.
  * numPtsPerBox - Number of cell points in each grid box.
  * maxSpeed - Maximum allowed speed for cell points, in space units per frame.
  * cellPts - Array containing the cell center points, grouped by grid box.
+ *   Initial positions will be stored here.
+ * cellPtVels - Array containing the cell point velocities, grouped by grid box.
+ *   Initial velocities will be stored here. Units are space units per frame.
+ */
+__kernel void cellNoise3DAnimInit(uint seedBase, uint numBoxesH,
+  uint numPtsPerBox, double maxSpeed, __global double *cellPts,
+  __global double *cellPtVels)
+{
+  size_t ptIdx = get_global_id(0);
+  uint seed = seedBase ^ ptIdx;
+  
+  // Generate random initial position.
+  double3 lowBounds, highBounds;
+  computeBoxBounds(numBoxesH, numPtsPerBox, ptIdx, &lowBounds, &highBounds);
+  double3 pos = (double3) (
+    randDoubleInRange(&seed, lowBounds.x, highBounds.x),
+    randDoubleInRange(&seed, lowBounds.y, highBounds.y),
+    randDoubleInRange(&seed, lowBounds.z, highBounds.z));
+  vstore3(pos, ptIdx, cellPts);
+  
+  // Generate random initial velocity.
+  double3 vel = randVecWithMagnitude3D(&seed,
+    randDoubleInRange(&seed, 0, maxSpeed));
+  vstore3(vel, ptIdx, cellPtVels);
+}
+
+/*
+ * Updates positions of cell points for 3D cellular noise using the specified
+ * velocities and accelerations.
+ * seedBase - Random seed. This will be combined with the worker ID to generate
+ *   a separate seed for each worker.
+ * numBoxesH - Number of grid box spaces lying along each axis.
+ * numPtsPerBox - Number of cell points in each grid box.
+ * maxSpeed - Maximum allowed speed for cell points, in space units per frame.
+ * maxAccel - Maximum allowed acceleration for cell points, in space units per
+ *   frame squared.
+ * cellPts - Array containing the cell center points, grouped by grid box.
  *   Updated positions will be stored here.
  * cellVels - Array containing the cell point velocities, grouped by grid box.
  *   Updated velocities will be stored here. Units are space units per frame.
- * cellPtAccels - Array containing the cell point accelerations, grouped by grid
- *   box, in spherical coordinates. Units are space units per frame squared.
  */
-__kernel void cellNoise3DAnimUpdate(const uint numBoxesH,
-  const uint numPtsPerBox, const double maxSpeed, __global double *cellPts,
-  __global double *cellPtVels, __global const double *cellPtAccels)
+__kernel void cellNoise3DAnimUpdate(uint seedBase, uint numBoxesH,
+  uint numPtsPerBox, double maxSpeed, double maxAccel, __global double *cellPts,
+  __global double *cellPtVels)
 {
   size_t ptIdx = get_global_id(0);
-  // Convert acceleration to Cartesian coordinates.
-  double3 accelSpherical = vload3(ptIdx, cellPtAccels);
-  double3 accelCart = sphericalToCartesian(accelSpherical);
+  uint seed = seedBase ^ ptIdx;
+  
+  // Generate random acceleration.
+  double3 accel = randVecWithMagnitude3D(&seed,
+    randDoubleInRange(&seed, 0, maxAccel));
   
   // Compute new velocity and position. Since the time units are frames, we can
   // ignore delta time in the calculations.
-  double3 newVel = vload3(ptIdx, cellPtVels) + accelCart;
+  double3 newVel = vload3(ptIdx, cellPtVels) + accel;
   double speedSquared = newVel.x * newVel.x + newVel.y * newVel.y
     + newVel.z * newVel.z;
   if (speedSquared > maxSpeed * maxSpeed) {

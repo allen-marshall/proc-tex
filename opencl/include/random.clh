@@ -1,0 +1,75 @@
+#pragma once
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+const long MODULUS = 2147483647;
+const long MULTIPLIER = 16807;
+
+void updateSeed(uint *seed) {
+  if (seed) {
+    if (*seed == 0) {
+      *seed = 1;
+    }
+    *seed = (*seed * MULTIPLIER) % MODULUS;
+  }
+}
+
+/*
+ * Generates an approximately uniform random double in the range [0, 1), and
+ * updates the seed value for use in later random number calculations.
+ */
+double randDouble(uint *seed) {
+  updateSeed(seed);
+  return (*seed - 1) / (double) MODULUS;
+}
+
+/*
+ * Generates an approximately uniform random double in the range
+ * [minVal, maxVal), and updates the seed value for use in later random number
+ * calculations.
+ */
+double randDoubleInRange(uint *seed, double minVal, double maxVal) {
+  return randDouble(seed) * (maxVal - minVal) + minVal;
+}
+
+/*
+ * Generates a random 2D vector with the specified magnitude, and updates the
+ * seed value for use in later random number calculations.
+ */
+double2 randVecWithMagnitude2D(uint *seed, double magnitude) {
+  // TODO: I think this function has a bit of a bias toward certain directions
+  // over others. Ideally, the direction should be uniformly random.
+  
+  // Generate a random vector of non-zero length.
+  double2 vec = (double2) (0, 0);
+  double currLength = 0;
+  while (currLength == 0) {
+    vec.x = randDoubleInRange(seed, -1, 1);
+    vec.y = randDoubleInRange(seed, -1, 1);
+    currLength = length(vec);
+  }
+  
+  // Scale to the required magnitude.
+  return vec * magnitude / currLength;
+}
+
+/*
+ * Generates a random 3D vector with the specified magnitude, and updates the
+ * seed value for use in later random number calculations.
+ */
+double3 randVecWithMagnitude3D(uint *seed, double magnitude) {
+  // TODO: I think this function has a bit of a bias toward certain directions
+  // over others. Ideally, the direction should be uniformly random.
+  
+  // Generate a random vector of non-zero length.
+  double3 vec = (double3) (0, 0, 0);
+  double currLength = 0;
+  while (currLength == 0) {
+    vec.x = randDoubleInRange(seed, -1, 1);
+    vec.y = randDoubleInRange(seed, -1, 1);
+    vec.z = randDoubleInRange(seed, -1, 1);
+    currLength = length(vec);
+  }
+  
+  // Scale to the required magnitude.
+  return vec * magnitude / currLength;
+}
