@@ -48,3 +48,54 @@ def tex_to_dtype(src, dtype, scale=1):
   
   return TransformedTexture(src.num_channels, src.num_space_dims, [src],
     space_transform, tex_transform, src.allow_anim)
+
+def tex_to_num_channels(src, num_channels):
+  """Converts a texture to have the specified number of channels.
+  If src has more than num_channels, the higher-numbered channels will be
+  discarded. If src has less than num_channels, channels will be repeated in
+  round robin order until the required number of channels is reached.
+  src - The source texture to transform.
+  num_channels - The desired number of channels.
+  Returns: The transformed texture."""
+  def space_transform(eval_pts):
+    return [eval_pts]
+  def tex_transform(src_vals):
+    src_vals = src_vals[0]
+    curr_num_channels = src_vals.shape[-1]
+    
+    # Repeat channels in round robin order if we have too few.
+    if curr_num_channels < num_channels:
+      num_channels_to_add = num_channels - curr_num_channels
+      pad_widths = ((0, 0),) * (len(src_vals.shape) - 1) + ((0, num_channels_to_add),)
+      return numpy.pad(src_vals, pad_widths, 'wrap')
+    
+    # Discard channels if we have too many.
+    elif curr_num_channels > num_channels:
+      index = (slice(None),) * (len(src_vals.shape) - 1) + (slice(0, num_channels),)
+      return src_vals[index]
+    
+    # Do nothing if we already have the desired number of channels.
+    else:
+      return src_vals
+
+def tex_concat_channels(src_textures, allow_anim=True):
+  """Concatenates the channels of multiple source textures.
+  The resulting texture has a number of channels equal to
+  sum([src.num_channels for src in src_textures]).
+  src_textures - The textures to concatenate. All source textures should have
+    the same number of space dimensions.
+  allow_anim - Indicates whether the resulting texture allows animation. Not
+    relevant if none of the source textures are animated.
+  Returns: The transformed texture."""
+  if len(src_textures) == 0:
+    raise ValueError('Must have at least one source texture')
+  
+  def space_transform(eval_pts):
+    return [eval_pts] * len(src_textures)
+  def tex_transform(src_vals):
+    return numpy.concatenate(src_vals, axis=-1)
+  
+  new_num_channels = sum([src.num_channels for src in src_textures])
+  
+  return TransformedTexture(new_num_channels, src_textures[0].num_space_dims,
+    src_textures, space_transform, tex_transform, allow_anim)
