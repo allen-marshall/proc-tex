@@ -2,13 +2,14 @@ import cv2
 import numpy
 import pyopencl
 
-from proc_tex.OpenCLSpherePerlinNoise3D import OpenCLSpherePerlinNoise3D
-import proc_tex.texture_transforms
+from proc_tex.OpenCLPerlinNoise3D import OpenCLPerlinNoise3D
 from proc_tex.texture_transforms import tex_scale_to_region, tex_to_dtype
+from proc_tex.texture_transforms_opencl import tex_3d_to_sphere_map
 
 if __name__ == '__main__':
   cl_context = pyopencl.create_some_context()
-  texture = OpenCLSpherePerlinNoise3D(cl_context, 40)
+  texture = tex_3d_to_sphere_map(OpenCLPerlinNoise3D(cl_context, 40),
+    cl_context)
   texture = tex_to_dtype(tex_scale_to_region(texture), numpy.uint16,
     scale=65535)
   eval_pts = texture.gen_eval_pts((1024, 1024), numpy.array([[0,1], [0,1]]))

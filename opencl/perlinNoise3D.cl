@@ -29,36 +29,32 @@ double gradDotProd(uint numBoxesH, double boxSize, uint3 boxCoords,
 }
 
 /*
- * Computes 3D Perlin-like noise for points on a sphere.
+ * Computes 3D Perlin-like noise.
  * numBoxesH - Number of grid box spaces lying along each axis. Must be at least
  *   1.
  * gradients - Array containing the gradient vectors, grouped by grid box.
- * evalPts - Array containing the (sphere-mapped) points at which to evaluate
- * the noise. Each worker indexes this array by get_global_id[0] to determine
- *   its evaluation point.
+ * evalPts - Array containing the 3D points at which to evaluate the noise. Each
+ *   worker indexes this array by get_global_id[0] to determine its evaluation
+ *   point.
  * result - Array in which to store the result. Each worker indexes this array
  *   by get_global_id[0] to determine where to store its result.
  */
-__kernel void spherePerlinNoise3D(uint numBoxesH,
-  __global const double *gradients, __global const double2 *evalPts,
-  __global double *result)
+__kernel void perlinNoise3D(uint numBoxesH, __global const double *gradients,
+  __global const double *evalPts, __global double *result)
 {
-  // Compute the evaluation point, normalized into the base square (unit square
-  // centered at (0.5, 0.5)).
+  // Compute the evaluation point, normalized into the base cube (unit cube
+  // centered at (0.5, 0.5, 0.5)).
   size_t pixelIdx = get_global_id(0);
-  double2 evalPt = evalPts[pixelIdx];
-  normalizeTexPt2D(&evalPt);
-  
-  // Compute the Cartesian position corresponding to the evaluation point.
-  double3 evalPtCart = texSphericalToCartesian(evalPt, 0.5);
+  double3 evalPt = vload3(pixelIdx, evalPts);
+  normalizeTexPt3D(&evalPt);
   
   double boxSize = 1.0 / numBoxesH;
   
   // Find the grid box containing the normalized evaluation point.
-  uint3 boxCoords = findBoxForPt3D(boxSize, evalPtCart);
+  uint3 boxCoords = findBoxForPt3D(boxSize, evalPt);
   
   // Compute interpolation factors.
-  double3 relEvalPt = evalPtCart / boxSize - floor(evalPtCart / boxSize);
+  double3 relEvalPt = evalPt / boxSize - floor(evalPt / boxSize);
   double lerpFacX = 1 - smoothstep(0, 1, relEvalPt.x);
   double lerpFacY = 1 - smoothstep(0, 1, relEvalPt.y);
   double lerpFacZ = 1 - smoothstep(0, 1, relEvalPt.z);
@@ -79,7 +75,7 @@ __kernel void spherePerlinNoise3D(uint numBoxesH,
         resultVal += currLerpFacX * currLerpFacY * currLerpFacZ
           * gradDotProd(numBoxesH, boxSize,
               normalizeBoxCoords3D(numBoxesH, (int3) (boxX, boxY, boxZ)),
-              evalPtCart, gradients);
+              evalPt, gradients);
       }
     }
   }

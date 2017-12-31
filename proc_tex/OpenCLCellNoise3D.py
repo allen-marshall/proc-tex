@@ -10,9 +10,9 @@ import proc_tex.dist_metrics
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
-_NUM_SPACE_DIMS = 2
+_NUM_SPACE_DIMS = 3
 
-class OpenCLSphereCellNoise3D(Texture):
+class OpenCLCellNoise3D(Texture):
   """Computes sphere-mapped 3D cellular noise.
   Uses a modified version of Worley's grid-based cellular noise algorithm.
   Animation causes the cell points to move randomly."""
@@ -30,8 +30,7 @@ class OpenCLSphereCellNoise3D(Texture):
     point_max_accel - Maximum point acceleration, in space units per frame
       squared.
     allow_anim - If false, the noise will not be animated."""
-    super(OpenCLSphereCellNoise3D, self).__init__(_NUM_CHANNELS,
-      _NUM_SPACE_DIMS)
+    super(OpenCLCellNoise3D, self).__init__(_NUM_CHANNELS, _NUM_SPACE_DIMS)
     
     if pts_per_box <= 0:
       raise ValueError("Must have at least one point per grid box.")
@@ -46,7 +45,7 @@ class OpenCLSphereCellNoise3D(Texture):
     self.allow_anim = allow_anim
     
     # Precompile the OpenCL programs.
-    with open('opencl/sphereCellNoise3D.cl', 'r', encoding='utf-8') as program_file:
+    with open('opencl/cellNoise3D.cl', 'r', encoding='utf-8') as program_file:
       self.cl_program_noise = pyopencl.Program(self.cl_context, program_file.read()) \
         .build(options=['-I', 'opencl/include/'])
     with open('opencl/cellNoise3DAnim.cl', 'r', encoding='utf-8') as program_file:
@@ -97,7 +96,7 @@ class OpenCLSphereCellNoise3D(Texture):
       pyopencl.mem_flags.WRITE_ONLY, result_size_bytes)
     
     with pyopencl.CommandQueue(self.cl_context) as cl_queue:
-      self.cl_program_noise.sphereCellNoise3D(cl_queue, (result_array.size,),
+      self.cl_program_noise.cellNoise3D(cl_queue, (result_array.size,),
         None, numpy.uint32(self.num_boxes_h), numpy.uint32(self.pts_per_box),
         numpy.uint32(self.metric), cell_pts_buffer, eval_pts_buffer,
         result_buffer)

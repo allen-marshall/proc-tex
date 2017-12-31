@@ -10,18 +10,17 @@ import proc_tex.dist_metrics
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
-_NUM_SPACE_DIMS = 2
+_NUM_SPACE_DIMS = 3
 
-class OpenCLSpherePerlinNoise3D(Texture):
-  """Computes sphere-mapped 3D Perlin noise."""
+class OpenCLPerlinNoise3D(Texture):
+  """Computes 3D Perlin noise."""
   def __init__(self, cl_context, num_boxes_h, allow_anim=True):
     """Initializer.
     cl_context - The PyOpenCL context to use for computation.
     num_boxes_h - The width, height, and depth (all the same) of the grid, in
       number of grid boxes. Should be at least 1.
     allow_anim - If false, the noise will not be animated."""
-    super(OpenCLSpherePerlinNoise3D, self).__init__(_NUM_CHANNELS,
-      _NUM_SPACE_DIMS)
+    super(OpenCLPerlinNoise3D, self).__init__(_NUM_CHANNELS, _NUM_SPACE_DIMS)
     
     self.cl_context = cl_context
     self.num_boxes_h = num_boxes_h
@@ -29,7 +28,7 @@ class OpenCLSpherePerlinNoise3D(Texture):
     self.allow_anim = allow_anim
     
     # Precompile the OpenCL programs.
-    with open('opencl/spherePerlinNoise3D.cl', 'r', encoding='utf-8') as program_file:
+    with open('opencl/perlinNoise3D.cl', 'r', encoding='utf-8') as program_file:
       self.cl_program_noise = pyopencl.Program(self.cl_context, program_file.read()) \
         .build(options=['-I', 'opencl/include/'])
     with open('opencl/perlinNoise3DAnim.cl', 'r', encoding='utf-8') as program_file:
@@ -72,8 +71,8 @@ class OpenCLSpherePerlinNoise3D(Texture):
       pyopencl.mem_flags.WRITE_ONLY, result_size_bytes)
     
     with pyopencl.CommandQueue(self.cl_context) as cl_queue:
-      self.cl_program_noise.spherePerlinNoise3D(cl_queue, (result_array.size,),
-        None, numpy.uint32(self.num_boxes_h), gradients_buffer, eval_pts_buffer,
+      self.cl_program_noise.perlinNoise3D(cl_queue, (result_array.size,), None,
+        numpy.uint32(self.num_boxes_h), gradients_buffer, eval_pts_buffer,
         result_buffer)
       
       pyopencl.enqueue_copy(cl_queue, result_array, result_buffer)
