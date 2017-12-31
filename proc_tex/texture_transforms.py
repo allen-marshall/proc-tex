@@ -77,6 +77,9 @@ def tex_to_num_channels(src, num_channels):
     # Do nothing if we already have the desired number of channels.
     else:
       return src_vals
+  
+  return TransformedTexture(num_channels, src.num_space_dims, [src],
+    space_transform, tex_transform)
 
 def tex_concat_channels(src_textures):
   """Concatenates the channels of multiple source textures.
