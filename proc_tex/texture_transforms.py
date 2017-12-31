@@ -100,3 +100,25 @@ def tex_concat_channels(src_textures):
   
   return TransformedTexture(new_num_channels, src_textures[0].num_space_dims,
     src_textures, space_transform, tex_transform)
+
+def tex_space_offset_by_texture(src, offset_texture):
+  """Transforms a source texture's space by applying an offset texture.
+  src - The source texture whose texture space will be transformed.
+  offset_texture - Texture that will be evaluated to compute the texture space
+    offset at each evaluation point. offset_texture.num_space_dims and
+    offset_texture.num_channels must both equal src.num_space_dims."""
+  if src.num_space_dims != offset_texture.num_space_dims:
+    raise ValueError(
+      'Source texture and offset texture must have the same number of spatial dimensions')
+  if offset_texture.num_space_dims != offset_texture.num_channels:
+    raise ValueError(
+      'Offset texture must have the same number of channels as spatial dimensions')
+  
+  def space_transform(eval_pts):
+    return [eval_pts + offset_texture.evaluate(eval_pts)]
+  
+  def tex_transform(src_vals):
+    return src_vals[0]
+  
+  return TransformedTexture(src.num_channels, src.num_space_dims, [src],
+    space_transform, tex_transform, [offset_texture])
