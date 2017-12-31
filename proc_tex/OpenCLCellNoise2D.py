@@ -5,20 +5,20 @@ import time
 import numpy
 import pyopencl
 
-from proc_tex.texture_base import TimeSpaceTexture
+from proc_tex.texture_base import Texture
 import proc_tex.dist_metrics
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
 _NUM_SPACE_DIMS = 2
 
-class OpenCLCellNoise2D(TimeSpaceTexture):
+class OpenCLCellNoise2D(Texture):
   """Computes 2D cellular noise.
   Uses a modified version of Worley's grid-based cellular noise algorithm.
   Animation causes the cell points to move randomly."""
   def __init__(self, cl_context, num_boxes_h, pts_per_box,
     metric = proc_tex.dist_metrics.METRIC_DEFAULT, point_max_speed=0.01,
-    point_max_accel=0.005):
+    point_max_accel=0.005, allow_anim=True):
     """Initializer.
     cl_context - The PyOpenCL context to use for computation.
     num_boxes_h - The width and height (both the same) of the grid, in number of
@@ -29,8 +29,8 @@ class OpenCLCellNoise2D(TimeSpaceTexture):
     point_max_speed - Maximum point speed, in space units per frame.
     point_max_accel - Maximum point acceleration, in space units per frame
       squared."""
-    super(OpenCLCellNoise2D, self).__init__(_NUM_CHANNELS, _DTYPE,
-      _NUM_SPACE_DIMS)
+    super(OpenCLCellNoise2D, self).__init__(_NUM_CHANNELS, _NUM_SPACE_DIMS,
+      allow_anim)
     
     if pts_per_box <= 0:
       raise ValueError("Must have at least one point per grid box.")

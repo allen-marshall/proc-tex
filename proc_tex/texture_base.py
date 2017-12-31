@@ -2,33 +2,34 @@ import subprocess
 
 import numpy
 
-class TimeSpaceTexture:
+class Texture:
   """Base class for still or animated textures.
-  Textures of this type support two dimensions of space and one of time. This
-  class can be used for non-animated textures by simply not overriding
+  This class can be used for non-animated textures by simply not overriding
   step_frame."""
-  def __init__(self, num_channels, dtype, num_space_dims):
+  def __init__(self, num_channels, num_space_dims, allow_anim=True,
+    anim_synch_textures=[]):
     """Initializer.
     num_channels - The number of channels per pixel.
-    dtype - The Numpy dtype to use for the data in each channel.
     num_space_dims - The number of spatial dimensions expected in an image
-      generated from the texture. Typically 2."""
+      generated from the texture. Typically 2.
+    allow_anim - If false, animation will be disabled even if the subclass
+      supports it.
+    anim_synch_textures - List of textures that should be animated along with
+      this texture. Can be useful for animated textures that are derived from
+      other animated textures."""
     self.num_channels = num_channels
-    self.dtype = dtype
     self.num_space_dims = num_space_dims
-    self.curr_frame = 0
+    self.allow_anim = allow_anim
+    self.anim_synch_textures = anim_synch_textures
+    self.curr_frame = max(
+      [0] + [texture.curr_frame for texture in anim_synch_textures])
   
   def evaluate(self, eval_pts):
     """Gets the pixel values at the specified locations. Subclasses should
-    typically override this. Subclasses are not required to return a consistent
-    value when evaluated multiple times at the same point (this helps with the
-    implementation of e.g. white noise). Therefore, callers that need
-    consistency should cache the values if they are needed more than once, or
-    ensure that they only use subclasses with consistent behavior. Default
-    implementation returns all zeros.
+    typically override this. Default implementation returns all zeros.
     eval_pts - A Numpy array of evaluation points. The size of the last
-      dimension should equal the number of dimensions in an evaluation point
-      (e.g., dimension size 2 for a 2D texture).
+      dimension should equal the number of dimensions expected in an evaluation
+      point (e.g., dimension size 2 for a 2D texture).
     returns: A Numpy array of evaluation results. This should have the same
       shape as eval_pts, except with the last dimension size changed to the
       number of channels supported by this texture."""
@@ -38,23 +39,29 @@ class TimeSpaceTexture:
     """Moves internal state to the specified frame.
     Does not support going back before the current frame.
     frame_idx - Index of the frame to go to."""
-    while self.curr_frame < frame_idx:
-      self.step_frame()
-      self.curr_frame += 1
+    if self.allow_anim:
+      while self.curr_frame < frame_idx:
+        self.step_frame()
+        self.curr_frame += 1
+    else:
+      self.curr_frame = max(self.curr_frame, frame_idx)
+    
+    # Move any animation-synchronized textures along with this texture.
+    for texture in self.anim_synch_textures:
+      texture.set_frame(frame_idx)
   
   def step_frame(self):
     """Moves internal state to the next frame.
-    For animated textures, this will typically result in evaluate changing what
-    values it returns. Subclasses that require animation should typically
-    override this. Default implementation does nothing."""
+    For animated textures, this will typically result in the evaluate method
+    changing what values it returns. Subclasses that require animation should
+    typically override this. Default implementation does nothing."""
     pass
   
   def to_image(self, pixel_dims, space_bounds, eval_pts=None):
     """Generates a Numpy array representing an image of the current frame.
     Assuming the texture's number of channels, channel dtype, and number of
     spatial dimensions are supported by OpenCV, the image should be compatible
-    with PyOpenCV functions. (Presumably the number of spatial dimensions must
-    be 2 for this to work.)
+    with PyOpenCV functions.
     pixel_dims - Numpy shape object specifying the number of pixels in each
       dimension. E.g., for a 2D image pixel_dims[0] is the width and
       pixel_dims[1] the height.
@@ -156,83 +163,108 @@ class TimeSpaceTexture:
   def __add__(self, other):
     """Texture addition.
     See BinaryCombinedTexture for restrictions on what can be added."""
-    return BinaryCombinedTexture(self, other, lambda x,y: x + y)
+    return _SimpleBinaryCombinedTexture(self, other, lambda x,y: x + y)
   
   def __radd__(self, other):
     """Right-hand side texture addition.
     See BinaryCombinedTexture for restrictions on what can be added."""
-    return BinaryCombinedTexture(other, self, lambda x,y: x + y)
+    return _SimpleBinaryCombinedTexture(other, self, lambda x,y: x + y)
   
   def __sub__(self, other):
     """Texture subtraction.
     See BinaryCombinedTexture for restrictions on what can be subtracted."""
-    return BinaryCombinedTexture(self, other, lambda x,y: x - y)
+    return _SimpleBinaryCombinedTexture(self, other, lambda x,y: x - y)
   
   def __rsub__(self, other):
     """Right-hand side texture subtraction.
     See BinaryCombinedTexture for restrictions on what can be subtracted."""
-    return BinaryCombinedTexture(other, self, lambda x,y: x - y)
+    return _SimpleBinaryCombinedTexture(other, self, lambda x,y: x - y)
+  
+  def __neg__(self):
+    return 0 - self
   
   def __mul__(self, other):
     """Texture multiplication.
     See BinaryCombinedTexture for restrictions on what can be multiplied."""
-    return BinaryCombinedTexture(self, other, lambda x,y: x * y)
+    return _SimpleBinaryCombinedTexture(self, other, lambda x,y: x * y)
   
   def __rmul__(self, other):
     """Right-hand side texture multiplication.
     See BinaryCombinedTexture for restrictions on what can be multiplied."""
-    return BinaryCombinedTexture(other, self, lambda x,y: x * y)
+    return _SimpleBinaryCombinedTexture(other, self, lambda x,y: x * y)
 
-class ScalarConstantTexture(TimeSpaceTexture):
+class ScalarConstantTexture(Texture):
   """Texture that outputs a constant scalar value on each channel."""
   
-  def __init__(self, num_channels, dtype, num_space_dims, value):
+  def __init__(self, num_channels, num_space_dims, value):
     """Initializer.
     value - The constant scalar value to output."""
-    super(ScalarConstantTexture, self).__init__(num_channels, dtype,
-      num_space_dims)
+    super(ScalarConstantTexture, self).__init__(num_channels, num_space_dims)
     self.value = value
   
   def evaluate(self, eval_pts):
     return numpy.full(eval_pts.shape[:-1] + (self.num_channels,), self.value)
 
-class BinaryCombinedTexture(TimeSpaceTexture):
-  """Used for implementing texture combination operations."""
+class TransformedTexture(Texture):
+  """Class for applying transformation functions to source texture(s)."""
   
-  def __init__(self, src0, src1, combine):
-    """Combines two textures according to the specified combine function.
-    src0 and src1 should have the same number of space dimensions and channels.
-    At least one of the two must be a texture object, but one can be a scalar.
-    The dtype of the resulting texture is that of src0, or that of src1 if src0
-    is a scalar.
+  def __init__(self, num_channels, num_space_dims, src_textures,
+    space_transform, tex_transform, allow_anim=True, anim_synch_textures=[]):
+    """Initializer.
+    src_textures - Iterable of source textures to which transformations will be
+      applied.
+    space_transform - A function that transforms the evaluation points before
+      they are passed to the source textures. Takes a single argument: a Numpy
+      array of evaluation points with number of space dimensions equal to
+      num_space_dims. Returns an iterable of transformed Numpy arrays, one for
+      each source texture. The ith returned array must have number of space
+      dimensions matching that of the ith source texture.
+    tex_transform - A function that transforms the texture outputs after they
+      are obtained from the source textures. Takes a single argument: an
+      iterable of the Numpy arrays representing the texture output of each
+      source texture. Returns a Numpy array representing the final texture
+      output. The returned array must have the appropriate number of channels
+      for the texture.
+    anim_synch_textures - See superclass. src_textures get added
+      automatically."""
+    super(TransformedTexture, self).__init__(num_channels, num_space_dims,
+      allow_anim, anim_synch_textures + src_textures)
+    self.src_textures = src_textures
+    self.space_transform = space_transform
+    self.tex_transform = tex_transform
+  
+  def evaluate(self, eval_pts):
+    transformed_eval_pts = self.space_transform(eval_pts)
+    src_outputs = [src_texture.evaluate(pts) for src_texture, pts in zip(self.src_textures, transformed_eval_pts)]
+    return self.tex_transform(src_outputs)
+
+class _SimpleBinaryCombinedTexture(TransformedTexture):
+  """Simple texture transformation for implementing overloaded operators."""
+  
+  def __init__(self, src0, src1, combination):
+    """Combines two textures according to the specified combination function.
+    src0 and src1 should have the same number of space dimensions and channels
+    if both are textures. At least one of the two must be a texture object, but
+    one can be a scalar.
     src0 - First texture to combine, or a scalar to combine with src1.
     src1 - Second texture to combine, or a scalar to combine with src0.
-    combine - A combining function that takes two Numpy arrays of evaluated
+    combination - A combining function that takes two Numpy arrays of evaluated
       texture points and combines them into one.
     """
-    if not (isinstance(src0, TimeSpaceTexture) or isinstance(src1, TimeSpaceTexture)):
+    if not (isinstance(src0, Texture) or isinstance(src1, Texture)):
       raise ValueError('Expected at least one source texture.')
     
     # Convert scalars to constant-valued textures.
-    if not isinstance(src0, TimeSpaceTexture):
-      src0 = ScalarConstantTexture(src1.num_channels, src1.dtype,
-        src1.num_space_dims, src0)
-    if not isinstance(src1, TimeSpaceTexture):
-      src1 = ScalarConstantTexture(src0.num_channels, src0.dtype,
-        src0.num_space_dims, src1)
+    if not isinstance(src0, Texture):
+      src0 = ScalarConstantTexture(src1.num_channels, src1.num_space_dims, src0)
+    if not isinstance(src1, Texture):
+      src1 = ScalarConstantTexture(src0.num_channels, src0.num_space_dims, src1)
     
-    super(BinaryCombinedTexture, self).__init__(src0.num_channels, src0.dtype,
-      src0.num_space_dims)
+    def space_transform(eval_pts):
+      return [eval_pts, eval_pts]
+    def tex_transform(src_vals):
+      return combination(src_vals[0], src_vals[1])
     
-    self.src0 = src0
-    self.src1 = src1
-    self.combine = combine
-    self.curr_frame = max(src0.curr_frame, src1.curr_frame)
-  
-  def evaluate(self, eval_pts):
-    return self.combine(self.src0.evaluate(eval_pts),
-      self.src1.evaluate(eval_pts))
-  
-  def set_frame(self, frame_idx):
-    self.src0.set_frame(frame_idx)
-    self.src1.set_frame(frame_idx)
+    super(_SimpleBinaryCombinedTexture, self).__init__(src0.num_channels,
+      src0.num_space_dims, [src0, src1], space_transform, tex_transform,
+      src0.allow_anim or src1.allow_anim)

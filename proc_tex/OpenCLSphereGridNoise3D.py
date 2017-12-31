@@ -5,22 +5,22 @@ import time
 import numpy
 import pyopencl
 
-from proc_tex.texture_base import TimeSpaceTexture
+from proc_tex.texture_base import Texture
 import proc_tex.dist_metrics
 
 _NUM_CHANNELS = 1
 _DTYPE = numpy.float64
 _NUM_SPACE_DIMS = 2
 
-class OpenCLSphereGridNoise3D(TimeSpaceTexture):
+class OpenCLSphereGridNoise3D(Texture):
   """Computes sphere-mapped 3D simple grid noise."""
-  def __init__(self, cl_context, num_boxes_h):
+  def __init__(self, cl_context, num_boxes_h, allow_anim=True):
     """Initializer.
     cl_context - The PyOpenCL context to use for computation.
     num_boxes_h - The width, height, and depth (all the same) of the grid, in
       number of grid boxes. Should be at least 1."""
-    super(OpenCLSphereGridNoise3D, self).__init__(_NUM_CHANNELS, _DTYPE,
-      _NUM_SPACE_DIMS)
+    super(OpenCLSphereGridNoise3D, self).__init__(_NUM_CHANNELS,
+      _NUM_SPACE_DIMS, allow_anim)
     
     self.cl_context = cl_context
     self.num_boxes_h = num_boxes_h
