@@ -6,20 +6,16 @@ class Texture:
   """Base class for still or animated textures.
   This class can be used for non-animated textures by simply not overriding
   step_frame."""
-  def __init__(self, num_channels, num_space_dims, allow_anim=True,
-    anim_synch_textures=[]):
+  def __init__(self, num_channels, num_space_dims, anim_synch_textures=[]):
     """Initializer.
     num_channels - The number of channels per pixel.
     num_space_dims - The number of spatial dimensions expected in an image
       generated from the texture. Typically 2.
-    allow_anim - If false, animation will be disabled even if the subclass
-      supports it.
     anim_synch_textures - List of textures that should be animated along with
       this texture. Can be useful for animated textures that are derived from
       other animated textures."""
     self.num_channels = num_channels
     self.num_space_dims = num_space_dims
-    self.allow_anim = allow_anim
     self.anim_synch_textures = anim_synch_textures
     self.curr_frame = max(
       [0] + [texture.curr_frame for texture in anim_synch_textures])
@@ -39,12 +35,9 @@ class Texture:
     """Moves internal state to the specified frame.
     Does not support going back before the current frame.
     frame_idx - Index of the frame to go to."""
-    if self.allow_anim:
-      while self.curr_frame < frame_idx:
-        self.step_frame()
-        self.curr_frame += 1
-    else:
-      self.curr_frame = max(self.curr_frame, frame_idx)
+    while self.curr_frame < frame_idx:
+      self.step_frame()
+      self.curr_frame += 1
     
     # Move any animation-synchronized textures along with this texture.
     for texture in self.anim_synch_textures:
@@ -209,7 +202,7 @@ class TransformedTexture(Texture):
   """Class for applying transformation functions to source texture(s)."""
   
   def __init__(self, num_channels, num_space_dims, src_textures,
-    space_transform, tex_transform, allow_anim=True, anim_synch_textures=[]):
+    space_transform, tex_transform, anim_synch_textures=[]):
     """Initializer.
     src_textures - Iterable of source textures to which transformations will be
       applied.
@@ -228,7 +221,7 @@ class TransformedTexture(Texture):
     anim_synch_textures - See superclass. src_textures get added
       automatically."""
     super(TransformedTexture, self).__init__(num_channels, num_space_dims,
-      allow_anim, anim_synch_textures + src_textures)
+      anim_synch_textures + src_textures)
     self.src_textures = src_textures
     self.space_transform = space_transform
     self.tex_transform = tex_transform
@@ -266,5 +259,4 @@ class _SimpleBinaryCombinedTexture(TransformedTexture):
       return combination(src_vals[0], src_vals[1])
     
     super(_SimpleBinaryCombinedTexture, self).__init__(src0.num_channels,
-      src0.num_space_dims, [src0, src1], space_transform, tex_transform,
-      src0.allow_anim or src1.allow_anim)
+      src0.num_space_dims, [src0, src1], space_transform, tex_transform)

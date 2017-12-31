@@ -31,7 +31,7 @@ def tex_scale_to_region(src, min_value=0, max_value=1):
       return src_vals * scale + offset
   
   return TransformedTexture(src.num_channels, src.num_space_dims, [src],
-    space_transform, tex_transform, src.allow_anim)
+    space_transform, tex_transform)
 
 def tex_to_dtype(src, dtype, scale=1):
   """Converts a texture to the given dtype for each channel.
@@ -47,7 +47,7 @@ def tex_to_dtype(src, dtype, scale=1):
     return (src_vals[0] * scale).astype(dtype)
   
   return TransformedTexture(src.num_channels, src.num_space_dims, [src],
-    space_transform, tex_transform, src.allow_anim)
+    space_transform, tex_transform)
 
 def tex_to_num_channels(src, num_channels):
   """Converts a texture to have the specified number of channels.
@@ -78,14 +78,12 @@ def tex_to_num_channels(src, num_channels):
     else:
       return src_vals
 
-def tex_concat_channels(src_textures, allow_anim=True):
+def tex_concat_channels(src_textures):
   """Concatenates the channels of multiple source textures.
   The resulting texture has a number of channels equal to
   sum([src.num_channels for src in src_textures]).
   src_textures - The textures to concatenate. All source textures should have
     the same number of space dimensions.
-  allow_anim - Indicates whether the resulting texture allows animation. Not
-    relevant if none of the source textures are animated.
   Returns: The transformed texture."""
   if len(src_textures) == 0:
     raise ValueError('Must have at least one source texture')
@@ -98,4 +96,4 @@ def tex_concat_channels(src_textures, allow_anim=True):
   new_num_channels = sum([src.num_channels for src in src_textures])
   
   return TransformedTexture(new_num_channels, src_textures[0].num_space_dims,
-    src_textures, space_transform, tex_transform, allow_anim)
+    src_textures, space_transform, tex_transform)

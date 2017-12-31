@@ -28,9 +28,9 @@ class OpenCLCellNoise2D(Texture):
       distance metric to use.
     point_max_speed - Maximum point speed, in space units per frame.
     point_max_accel - Maximum point acceleration, in space units per frame
-      squared."""
-    super(OpenCLCellNoise2D, self).__init__(_NUM_CHANNELS, _NUM_SPACE_DIMS,
-      allow_anim)
+      squared.
+    allow_anim - If false, the noise will not be animated."""
+    super(OpenCLCellNoise2D, self).__init__(_NUM_CHANNELS, _NUM_SPACE_DIMS)
     
     if pts_per_box <= 0:
       raise ValueError("Must have at least one point per grid box.")
@@ -42,6 +42,7 @@ class OpenCLCellNoise2D(Texture):
     self.metric = metric
     self.point_max_speed = point_max_speed
     self.point_max_accel = point_max_accel
+    self.allow_anim = allow_anim
     
     # Precompile the OpenCL programs.
     with open('opencl/cellNoise2D.cl', 'r', encoding='utf-8') as program_file:
@@ -106,25 +107,26 @@ class OpenCLCellNoise2D(Texture):
     
   
   def step_frame(self):
-    seed = random.randrange(0, 2 ** 32)
-    
-    # Create buffers for the OpenCL kernels.
-    cell_pts_buffer = pyopencl.Buffer(self.cl_context,
-      pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
-      hostbuf=self.cell_pts)
-    cell_vels_buffer = pyopencl.Buffer(self.cl_context,
-      pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
-      hostbuf=self.cell_vels)
-    
-    with pyopencl.CommandQueue(self.cl_context) as cl_queue:
-      self.cl_program_anim.cellNoise2DAnimUpdate(cl_queue,
-        (self.cell_pts.shape[0],), None, numpy.uint32(seed),
-        numpy.uint32(self.num_boxes_h), numpy.uint32(self.pts_per_box),
-        numpy.float64(self.point_max_speed),
-        numpy.float64(self.point_max_accel), cell_pts_buffer, cell_vels_buffer)
+    if self.allow_anim:
+      seed = random.randrange(0, 2 ** 32)
       
-      pyopencl.enqueue_copy(cl_queue, self.cell_pts, cell_pts_buffer)
-      pyopencl.enqueue_copy(cl_queue, self.cell_vels, cell_vels_buffer)
+      # Create buffers for the OpenCL kernels.
+      cell_pts_buffer = pyopencl.Buffer(self.cl_context,
+        pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
+        hostbuf=self.cell_pts)
+      cell_vels_buffer = pyopencl.Buffer(self.cl_context,
+        pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
+        hostbuf=self.cell_vels)
+      
+      with pyopencl.CommandQueue(self.cl_context) as cl_queue:
+        self.cl_program_anim.cellNoise2DAnimUpdate(cl_queue,
+          (self.cell_pts.shape[0],), None, numpy.uint32(seed),
+          numpy.uint32(self.num_boxes_h), numpy.uint32(self.pts_per_box),
+          numpy.float64(self.point_max_speed),
+          numpy.float64(self.point_max_accel), cell_pts_buffer, cell_vels_buffer)
+        
+        pyopencl.enqueue_copy(cl_queue, self.cell_pts, cell_pts_buffer)
+        pyopencl.enqueue_copy(cl_queue, self.cell_vels, cell_vels_buffer)
   
   def _grid_coords_to_bounds(self, coords):
     # Assumes the grid coordinates are inside the base cube.

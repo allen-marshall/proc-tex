@@ -18,13 +18,15 @@ class OpenCLSpherePerlinNoise3D(Texture):
     """Initializer.
     cl_context - The PyOpenCL context to use for computation.
     num_boxes_h - The width, height, and depth (all the same) of the grid, in
-      number of grid boxes. Should be at least 1."""
+      number of grid boxes. Should be at least 1.
+    allow_anim - If false, the noise will not be animated."""
     super(OpenCLSpherePerlinNoise3D, self).__init__(_NUM_CHANNELS,
-      _NUM_SPACE_DIMS, allow_anim)
+      _NUM_SPACE_DIMS)
     
     self.cl_context = cl_context
     self.num_boxes_h = num_boxes_h
     self.box_width = 1 / num_boxes_h
+    self.allow_anim = allow_anim
     
     # Precompile the OpenCL programs.
     with open('opencl/spherePerlinNoise3D.cl', 'r', encoding='utf-8') as program_file:
@@ -79,12 +81,13 @@ class OpenCLSpherePerlinNoise3D(Texture):
     return result_array
   
   def step_frame(self):
-    seed = random.randrange(0, 2 ** 32)
-    gradients_buffer = pyopencl.Buffer(self.cl_context,
-      pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
-      hostbuf=self.gradients)
-    with pyopencl.CommandQueue(self.cl_context) as cl_queue:
-      self.cl_program_anim.perlinNoise3DAnimUpdate(cl_queue,
-        (self.gradients.shape[0],), None, numpy.uint32(seed), gradients_buffer)
-      
-      pyopencl.enqueue_copy(cl_queue, self.gradients, gradients_buffer)
+    if self.allow_anim:
+      seed = random.randrange(0, 2 ** 32)
+      gradients_buffer = pyopencl.Buffer(self.cl_context,
+        pyopencl.mem_flags.READ_WRITE | pyopencl.mem_flags.COPY_HOST_PTR,
+        hostbuf=self.gradients)
+      with pyopencl.CommandQueue(self.cl_context) as cl_queue:
+        self.cl_program_anim.perlinNoise3DAnimUpdate(cl_queue,
+          (self.gradients.shape[0],), None, numpy.uint32(seed), gradients_buffer)
+        
+        pyopencl.enqueue_copy(cl_queue, self.gradients, gradients_buffer)
